@@ -29,33 +29,33 @@
   </label>
   <label>
     Rectangle Width (px):
-    <input type="number" id="rectWidth" min="1" value="100">
+    <input type="number" id="rectWidth" min="1" value="16">
   </label>
   <label>
     Rectangle Height (px):
-    <input type="number" id="rectHeight" min="1" value="100">
+    <input type="number" id="rectHeight" min="1" value="16">
   </label>
   <label>
     Margin Between Boxes (px):
-    <input type="number" id="margin" min="0" value="10">
+    <input type="number" id="margin" min="0" value="2">
   </label>
   <div class="margin-group">
     <strong>Outer Margins (px):</strong>
     <label>
       Top:
-      <input type="number" id="outerMarginTop" min="0" value="10">
+      <input type="number" id="outerMarginTop" min="0" value="2">
     </label>
     <label>
       Bottom:
-      <input type="number" id="outerMarginBottom" min="0" value="10">
+      <input type="number" id="outerMarginBottom" min="0" value="2">
     </label>
     <label>
       Left:
-      <input type="number" id="outerMarginLeft" min="0" value="10">
+      <input type="number" id="outerMarginLeft" min="0" value="2">
     </label>
     <label>
       Right:
-      <input type="number" id="outerMarginRight" min="0" value="10">
+      <input type="number" id="outerMarginRight" min="0" value="2">
     </label>
   </div>
   <label>
@@ -65,7 +65,7 @@
     <input type="range" id="removeTolerance" min="0" max="64" value="16">
     Tolerance (<span id="toleranceVal">16</span>)
   </label>
-  <button id="drawBtn">Draw Boxes</button>
+  <button id="drawBtn" style="display:none;">Draw Boxes</button>
   <button id="ripBtn" disabled>Rip All Boxes to PNG+ZIP</button>
   <canvas id="canvas"></canvas>
   <script>
@@ -87,7 +87,7 @@
     const ctx = canvas.getContext('2d');
 
     let img = new Image();
-    let lastBoxes = []; // Store last calculated box positions
+    let lastBoxes = [];
 
     imgInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -105,6 +105,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
       ripBtn.disabled = false;
+      drawBoxes(); // Automatically draw boxes when image loads
     };
 
     function calculateBoxes() {
@@ -116,11 +117,8 @@
       const outerLeft = parseInt(outerMarginLeftInput.value, 10);
       const outerRight = parseInt(outerMarginRightInput.value, 10);
 
-      // Calculate available drawable area
       const availWidth = canvas.width - outerLeft - outerRight;
       const availHeight = canvas.height - outerTop - outerBottom;
-
-      // Compute how many fit horizontally and vertically
       const cols = Math.floor((availWidth + margin) / (rw + margin));
       const rows = Math.floor((availHeight + margin) / (rh + margin));
 
@@ -138,17 +136,10 @@
     }
 
     function hexToRgb(hex) {
-      // Remove #
       hex = hex.replace(/^#/, '');
-      if (hex.length === 3) {
-        hex = hex.split('').map(x => x + x).join('');
-      }
+      if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
       const num = parseInt(hex, 16);
-      return [
-        (num >> 16) & 255,
-        (num >> 8) & 255,
-        num & 255
-      ];
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
     }
 
     function updateColorPreview() {
@@ -162,42 +153,45 @@
       toleranceVal.textContent = removeToleranceInput.value;
     });
 
-    drawBtn.addEventListener('click', function() {
+    // Redraw boxes on any relevant input change
+    [
+      rectWidthInput,
+      rectHeightInput,
+      marginInput,
+      outerMarginTopInput,
+      outerMarginBottomInput,
+      outerMarginLeftInput,
+      outerMarginRightInput
+    ].forEach(input => {
+      input.addEventListener('input', function() {
+        if (img.src) drawBoxes();
+      });
+    });
+
+    function drawBoxes() {
       if (!img.src) {
-        alert('Please upload a PNG image first.');
         return;
       }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
 
-      // Calculate and store box regions
       lastBoxes = calculateBoxes();
-
-      // Draw filled rectangles and borders
-      let boxCount = 0;
       for (const box of lastBoxes) {
-        // Fill the rectangle area to show its area
         ctx.save();
         ctx.globalAlpha = 0.25;
         ctx.fillStyle = "#00BFFF";
         ctx.fillRect(box.x, box.y, box.w, box.h);
         ctx.globalAlpha = 1.0;
 
-        // Draw the border: alternate dotted/solid
-        ctx.lineWidth = 2;
+        // Solid 1px border, no alternation
+        ctx.lineWidth = 1;
         ctx.strokeStyle = "#FF0000";
-        if (boxCount % 2 === 0) {
-          ctx.setLineDash([6, 6]);
-        } else {
-          ctx.setLineDash([]);
-        }
+        ctx.setLineDash([]);
         ctx.strokeRect(box.x, box.y, box.w, box.h);
         ctx.restore();
-
-        boxCount++;
       }
       ripBtn.disabled = false;
-    });
+    }
 
     // Remove color from image data (make alpha 0 where close to color)
     function removeColorFromImageData(imageData, removeColor, tolerance) {
@@ -207,13 +201,12 @@
         const r = data[i], g = data[i + 1], b = data[i + 2];
         const dist = Math.sqrt((r - rR) ** 2 + (g - gR) ** 2 + (b - bR) ** 2);
         if (dist <= tolerance) {
-          data[i + 3] = 0; // Make transparent
+          data[i + 3] = 0;
         }
       }
       return imageData;
     }
 
-    // Check if an imageData is "blank" (all pixels alpha=0)
     function isImageDataBlank(imageData) {
       const data = imageData.data;
       for (let i = 0; i < data.length; i += 4) {
@@ -224,7 +217,6 @@
       return true;
     }
 
-    // Rip all boxes and zip them
     ripBtn.addEventListener('click', async function() {
       if (!img.src) {
         alert('Please upload a PNG image first.');
@@ -244,26 +236,22 @@
       const offCtx = offCanvas.getContext('2d');
 
       const zip = new JSZip();
-
-      let zipIdx = 1; // For naming non-blank files in order
+      let zipIdx = 1;
 
       for (let idx = 0; idx < lastBoxes.length; idx++) {
         const box = lastBoxes[idx];
         offCtx.clearRect(0, 0, rw, rh);
         offCtx.drawImage(img, box.x, box.y, rw, rh, 0, 0, rw, rh);
 
-        // Get image data, remove background color, put back
         let imageData = offCtx.getImageData(0, 0, rw, rh);
         imageData = removeColorFromImageData(imageData, removeColor, tolerance);
 
-        // Check for blank tile
         if (!isImageDataBlank(imageData)) {
           offCtx.putImageData(imageData, 0, 0);
           const blob = await new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
           zip.file(`box_${(zipIdx).toString().padStart(3, '0')}.png`, blob);
           zipIdx++;
         }
-        // else: skip adding to zip
       }
 
       if (zipIdx === 1) {
