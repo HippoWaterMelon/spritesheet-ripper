@@ -233,13 +233,10 @@
       const offCtx = offCanvas.getContext('2d');
 
       const zip = new JSZip();
-      let idx = 1;
 
-      function canvasToBlob(canvas) {
-        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      }
-
-      for (const box of lastBoxes) {
+      // Forward order: idx goes from 1 to lastBoxes.length
+      for (let idx = 0; idx < lastBoxes.length; idx++) {
+        const box = lastBoxes[idx];
         offCtx.clearRect(0, 0, rw, rh);
         offCtx.drawImage(img, box.x, box.y, rw, rh, 0, 0, rw, rh);
 
@@ -248,9 +245,8 @@
         imageData = removeColorFromImageData(imageData, removeColor, tolerance);
         offCtx.putImageData(imageData, 0, 0);
 
-        const blob = await canvasToBlob(offCanvas);
-        zip.file(`box_${idx.toString().padStart(3, '0')}.png`, blob);
-        idx++;
+        const blob = await new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
+        zip.file(`box_${(idx+1).toString().padStart(3, '0')}.png`, blob);
       }
 
       zip.generateAsync({type:"blob"}).then(function(content) {
