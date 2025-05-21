@@ -1,0 +1,221 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PNG Area Box Layout Tool</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    label { display: block; margin-top: 1em; }
+    input[type="number"] { width: 5em; }
+    canvas { display: block; margin-top: 2em; border: 1px solid #ccc; }
+    .margin-group { margin-top: 1em; }
+    .margin-group label { display: inline-block; margin-right: 1em; }
+  </style>
+  <!-- JSZip CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-QQm4N1i7XSLz7bF5sJkQK1X7A3j1u2qzp7vBL6rQWRD3ZtKk8h7GuCPn8+V6H8gZU5UMdKJpVwXgQZ6U8QJ0WA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <h1>PNG Area Box Layout Tool</h1>
+  <label>
+    Upload PNG Image:
+    <input type="file" id="imgInput" accept="image/png">
+  </label>
+  <label>
+    Rectangle Width (px):
+    <input type="number" id="rectWidth" min="1" value="100">
+  </label>
+  <label>
+    Rectangle Height (px):
+    <input type="number" id="rectHeight" min="1" value="100">
+  </label>
+  <label>
+    Margin Between Boxes (px):
+    <input type="number" id="margin" min="0" value="10">
+  </label>
+  <div class="margin-group">
+    <strong>Outer Margins (px):</strong>
+    <label>
+      Top:
+      <input type="number" id="outerMarginTop" min="0" value="10">
+    </label>
+    <label>
+      Bottom:
+      <input type="number" id="outerMarginBottom" min="0" value="10">
+    </label>
+    <label>
+      Left:
+      <input type="number" id="outerMarginLeft" min="0" value="10">
+    </label>
+    <label>
+      Right:
+      <input type="number" id="outerMarginRight" min="0" value="10">
+    </label>
+  </div>
+  <button id="drawBtn">Draw Boxes</button>
+  <button id="ripBtn" disabled>Rip All Boxes to PNG+ZIP</button>
+  <canvas id="canvas"></canvas>
+  <script>
+    const imgInput = document.getElementById('imgInput');
+    const rectWidthInput = document.getElementById('rectWidth');
+    const rectHeightInput = document.getElementById('rectHeight');
+    const marginInput = document.getElementById('margin');
+    const outerMarginTopInput = document.getElementById('outerMarginTop');
+    const outerMarginBottomInput = document.getElementById('outerMarginBottom');
+    const outerMarginLeftInput = document.getElementById('outerMarginLeft');
+    const outerMarginRightInput = document.getElementById('outerMarginRight');
+    const drawBtn = document.getElementById('drawBtn');
+    const ripBtn = document.getElementById('ripBtn');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+
+    let img = new Image();
+    let lastBoxes = []; // Store last calculated box positions
+
+
+    imgInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+
+    img.onload = function() {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      ripBtn.disabled = false;
+    };
+
+
+    function calculateBoxes() {
+      const rw = parseInt(rectWidthInput.value, 10);
+      const rh = parseInt(rectHeightInput.value, 10);
+      const margin = parseInt(marginInput.value, 10);
+      const outerTop = parseInt(outerMarginTopInput.value, 10);
+      const outerBottom = parseInt(outerMarginBottomInput.value, 10);
+      const outerLeft = parseInt(outerMarginLeftInput.value, 10);
+      const outerRight = parseInt(outerMarginRightInput.value, 10);
+
+
+      // Calculate available drawable area
+      const availWidth = canvas.width - outerLeft - outerRight;
+      const availHeight = canvas.height - outerTop - outerBottom;
+
+
+      // Compute how many fit horizontally and vertically
+      const cols = Math.floor((availWidth + margin) / (rw + margin));
+      const rows = Math.floor((availHeight + margin) / (rh + margin));
+
+
+      const boxes = [];
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const x = outerLeft + col * (rw + margin);
+          const y = outerTop + row * (rh + margin);
+          if (x + rw <= canvas.width - outerRight && y + rh <= canvas.height - outerBottom) {
+            boxes.push({x, y, w: rw, h: rh});
+          }
+        }
+      }
+      return boxes;
+    }
+
+
+    drawBtn.addEventListener('click', function() {
+      if (!img.src) {
+        alert('Please upload a PNG image first.');
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+
+
+      // Calculate and store box regions
+      lastBoxes = calculateBoxes();
+
+
+      // Draw filled rectangles and borders
+      let boxCount = 0;
+      for (const box of lastBoxes) {
+        // Fill the rectangle area to show its area
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = "#00BFFF";
+        ctx.fillRect(box.x, box.y, box.w, box.h);
+        ctx.globalAlpha = 1.0;
+
+
+        // Draw the border: alternate dotted/solid
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#FF0000";
+        if (boxCount % 2 === 0) {
+          ctx.setLineDash([6, 6]);
+        } else {
+          ctx.setLineDash([]);
+        }
+        ctx.strokeRect(box.x, box.y, box.w, box.h);
+        ctx.restore();
+
+
+        boxCount++;
+      }
+      ripBtn.disabled = false;
+    });
+
+
+    // Rip all boxes and zip them
+    ripBtn.addEventListener('click', async function() {
+      if (!img.src) {
+        alert('Please upload a PNG image first.');
+        return;
+      }
+      if (!lastBoxes.length) {
+        alert('Please click "Draw Boxes" first.');
+        return;
+      }
+      const rw = parseInt(rectWidthInput.value, 10);
+      const rh = parseInt(rectHeightInput.value, 10);
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = rw;
+      offCanvas.height = rh;
+      const offCtx = offCanvas.getContext('2d');
+
+
+      const zip = new JSZip();
+      let idx = 1;
+
+
+      // Helper to await toBlob
+      function canvasToBlob(canvas) {
+        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      }
+
+
+      for (const box of lastBoxes) {
+        offCtx.clearRect(0, 0, rw, rh);
+        offCtx.drawImage(img, box.x, box.y, rw, rh, 0, 0, rw, rh);
+        const blob = await canvasToBlob(offCanvas);
+        zip.file(`box_${idx.toString().padStart(3, '0')}.png`, blob);
+        idx++;
+      }
+
+
+      zip.generateAsync({type:"blob"}).then(function(content) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = "boxes.zip";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 500);
+        a.remove();
+      });
+    });
+  </script>
+</body>
+</html>
