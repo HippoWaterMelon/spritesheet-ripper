@@ -10,8 +10,15 @@
     canvas { display: block; margin-top: 2em; border: 1px solid #ccc; }
     .margin-group { margin-top: 1em; }
     .margin-group label { display: inline-block; margin-right: 1em; }
+    #colorRemovePreview {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      vertical-align: middle;
+      margin-left: 0.5em;
+      border: 1px solid #ccc;
+    }
   </style>
-  <!-- JSZip CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
@@ -51,6 +58,13 @@
       <input type="number" id="outerMarginRight" min="0" value="10">
     </label>
   </div>
+  <label>
+    <span>Select color to remove (e.g. background):</span>
+    <input type="color" id="colorToRemove" value="#ffffff">
+    <span id="colorRemovePreview"></span>
+    <input type="range" id="removeTolerance" min="0" max="64" value="16">
+    Tolerance (<span id="toleranceVal">16</span>)
+  </label>
   <button id="drawBtn">Draw Boxes</button>
   <button id="ripBtn" disabled>Rip All Boxes to PNG+ZIP</button>
   <canvas id="canvas"></canvas>
@@ -63,6 +77,10 @@
     const outerMarginBottomInput = document.getElementById('outerMarginBottom');
     const outerMarginLeftInput = document.getElementById('outerMarginLeft');
     const outerMarginRightInput = document.getElementById('outerMarginRight');
+    const colorToRemoveInput = document.getElementById('colorToRemove');
+    const removeToleranceInput = document.getElementById('removeTolerance');
+    const toleranceVal = document.getElementById('toleranceVal');
+    const colorRemovePreview = document.getElementById('colorRemovePreview');
     const drawBtn = document.getElementById('drawBtn');
     const ripBtn = document.getElementById('ripBtn');
     const canvas = document.getElementById('canvas');
@@ -119,6 +137,31 @@
       return boxes;
     }
 
+    function hexToRgb(hex) {
+      // Remove #
+      hex = hex.replace(/^#/, '');
+      if (hex.length === 3) {
+        hex = hex.split('').map(x => x + x).join('');
+      }
+      const num = parseInt(hex, 16);
+      return [
+        (num >> 16) & 255,
+        (num >> 8) & 255,
+        num & 255
+      ];
+    }
+
+    function updateColorPreview() {
+      colorRemovePreview.style.background = colorToRemoveInput.value;
+    }
+
+    colorToRemoveInput.addEventListener('input', updateColorPreview);
+    updateColorPreview();
+
+    removeToleranceInput.addEventListener('input', () => {
+      toleranceVal.textContent = removeToleranceInput.value;
+    });
+
     drawBtn.addEventListener('click', function() {
       if (!img.src) {
         alert('Please upload a PNG image first.');
@@ -156,6 +199,20 @@
       ripBtn.disabled = false;
     });
 
+    // Remove color from image data (make alpha 0 where close to color)
+    function removeColorFromImageData(imageData, removeColor, tolerance) {
+      const data = imageData.data;
+      const [rR, gR, bR] = removeColor;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const dist = Math.sqrt((r - rR) ** 2 + (g - gR) ** 2 + (b - bR) ** 2);
+        if (dist <= tolerance) {
+          data[i + 3] = 0; // Make transparent
+        }
+      }
+      return imageData;
+    }
+
     // Rip all boxes and zip them
     ripBtn.addEventListener('click', async function() {
       if (!img.src) {
@@ -168,6 +225,8 @@
       }
       const rw = parseInt(rectWidthInput.value, 10);
       const rh = parseInt(rectHeightInput.value, 10);
+      const removeColor = hexToRgb(colorToRemoveInput.value);
+      const tolerance = parseInt(removeToleranceInput.value, 10);
       const offCanvas = document.createElement('canvas');
       offCanvas.width = rw;
       offCanvas.height = rh;
@@ -176,7 +235,6 @@
       const zip = new JSZip();
       let idx = 1;
 
-      // Helper to await toBlob
       function canvasToBlob(canvas) {
         return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       }
@@ -184,6 +242,12 @@
       for (const box of lastBoxes) {
         offCtx.clearRect(0, 0, rw, rh);
         offCtx.drawImage(img, box.x, box.y, rw, rh, 0, 0, rw, rh);
+
+        // Get image data, remove background color, put back
+        let imageData = offCtx.getImageData(0, 0, rw, rh);
+        imageData = removeColorFromImageData(imageData, removeColor, tolerance);
+        offCtx.putImageData(imageData, 0, 0);
+
         const blob = await canvasToBlob(offCanvas);
         zip.file(`box_${idx.toString().padStart(3, '0')}.png`, blob);
         idx++;
