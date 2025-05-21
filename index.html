@@ -213,6 +213,17 @@
       return imageData;
     }
 
+    // Check if an imageData is "blank" (all pixels alpha=0)
+    function isImageDataBlank(imageData) {
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] !== 0) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     // Rip all boxes and zip them
     ripBtn.addEventListener('click', async function() {
       if (!img.src) {
@@ -234,7 +245,8 @@
 
       const zip = new JSZip();
 
-      // Forward order: idx goes from 1 to lastBoxes.length
+      let zipIdx = 1; // For naming non-blank files in order
+
       for (let idx = 0; idx < lastBoxes.length; idx++) {
         const box = lastBoxes[idx];
         offCtx.clearRect(0, 0, rw, rh);
@@ -243,10 +255,20 @@
         // Get image data, remove background color, put back
         let imageData = offCtx.getImageData(0, 0, rw, rh);
         imageData = removeColorFromImageData(imageData, removeColor, tolerance);
-        offCtx.putImageData(imageData, 0, 0);
 
-        const blob = await new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
-        zip.file(`box_${(idx+1).toString().padStart(3, '0')}.png`, blob);
+        // Check for blank tile
+        if (!isImageDataBlank(imageData)) {
+          offCtx.putImageData(imageData, 0, 0);
+          const blob = await new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
+          zip.file(`box_${(zipIdx).toString().padStart(3, '0')}.png`, blob);
+          zipIdx++;
+        }
+        // else: skip adding to zip
+      }
+
+      if (zipIdx === 1) {
+        alert("All tiles were blank after color removal.");
+        return;
       }
 
       zip.generateAsync({type:"blob"}).then(function(content) {
