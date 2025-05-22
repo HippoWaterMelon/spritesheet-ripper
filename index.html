@@ -286,6 +286,12 @@
             <input type="range" id="removeTolerance" min="0" max="64" value="16">
             Tolerance (<span id="toleranceVal">16</span>)
           </label>
+          
+          <label>
+            <input type="checkbox" id="includeBlanksToggle" unchecked>
+            Include Blank Images
+          </label>
+
           <button id="drawBtn" style="display:none;">Draw Boxes</button>
           <button id="ripBtn" disabled>Export sprites to ZIP</button>
           <canvas id="canvas"></canvas>
@@ -309,6 +315,7 @@
     const colorToRemoveInput = document.getElementById('colorToRemove');
     const removeToleranceInput = document.getElementById('removeTolerance');
     const toleranceVal = document.getElementById('toleranceVal');
+    const includeBlanks = document.getElementById('includeBlanksToggle').checked;
     const drawBtn = document.getElementById('drawBtn');
     const ripBtn = document.getElementById('ripBtn');
     const canvas = document.getElementById('canvas');
@@ -478,10 +485,10 @@
         let imageData = offCtx.getImageData(0, 0, rw, rh);
         imageData = removeColorFromImageData(imageData, removeColor, tolerance);
 
-        if (!isImageDataBlank(imageData)) {
+        if (includeBlanks || !isImageDataBlank(imageData)) {
           offCtx.putImageData(imageData, 0, 0);
           const blob = await new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
-          zip.file(`box_${(zipIdx).toString().padStart(3, '0')}.png`, blob);
+          zip.file(`tile_${(zipIdx).toString().padStart(3, '0')}.png`, blob);
           zipIdx++;
         }
       }
