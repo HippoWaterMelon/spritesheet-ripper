@@ -98,7 +98,6 @@
     #png-tool {
       width: 100%;
       max-width: 100vw;
-      min-width:; 100vw;
       box-sizing: border-box;
     }
     
@@ -281,14 +280,11 @@
           </div>
           <label>
             <span>Select color to remove (e.g. background):</span>
-            <input type="color" id="colorToRemove" value="#ffffff">
-
-            <input type="range" id="removeTolerance" min="0" max="64" value="16">
-            Tolerance (<span id="toleranceVal">16</span>)
+            <input type="color" id="colorToRemove" value="#00ff00">
           </label>
           
           <label>
-            <input type="checkbox" id="includeBlanksToggle" unchecked>
+            <input type="checkbox" id="includeBlanksToggle">
             Include Blank Images
           </label>
 
@@ -312,10 +308,9 @@
     const outerMarginBottomInput = document.getElementById('outerMarginBottom');
     const outerMarginLeftInput = document.getElementById('outerMarginLeft');
     const outerMarginRightInput = document.getElementById('outerMarginRight');
+    
     const colorToRemoveInput = document.getElementById('colorToRemove');
-    const removeToleranceInput = document.getElementById('removeTolerance');
-    const toleranceVal = document.getElementById('toleranceVal');
-    const includeBlanks = document.getElementById('includeBlanksToggle').checked;
+    
     const drawBtn = document.getElementById('drawBtn');
     const ripBtn = document.getElementById('ripBtn');
     const canvas = document.getElementById('canvas');
@@ -323,12 +318,6 @@
 
     let img = new Image();
     let lastBoxes = [];
-
-    function updateToleranceValue() {
-      toleranceVal.textContent = removeToleranceInput.value;
-    }
-    updateToleranceValue();
-    removeToleranceInput.addEventListener('input', updateToleranceValue);
 
     imgInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -387,13 +376,6 @@
       return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
     }
 
-    function updateColorPreview() {
-      // colorRemovePreview.style.background = colorToRemoveInput.value;
-    }
-
-    colorToRemoveInput.addEventListener('input', updateColorPreview);
-    updateColorPreview();
-
     [
       rectWidthInput,
       rectHeightInput,
@@ -405,8 +387,6 @@
     ].forEach(input => {
       input.addEventListener('input', function() {
         if (img.src) drawBoxes();
-        // if (img.complete && img.naturalWidth > 0) drawBoxes();
-        // drawBoxes();
       });
     });
 
@@ -418,12 +398,7 @@
       lastBoxes = calculateBoxes();
       for (const box of lastBoxes) {
         ctx.save();
-        // ctx.globalAlpha = 0.25;
-        // ctx.fillStyle = "#e27b7b";
-        // ctx.fillRect(box.x, box.y, box.w, box.h);
         ctx.globalAlpha = 1.0;
-
-        // Solid 1px border, no alternation
         ctx.lineWidth = 1;
         ctx.strokeStyle = "#ac4343";
         ctx.setLineDash([]);
@@ -433,14 +408,20 @@
       ripBtn.disabled = false;
     }
 
-    function removeColorFromImageData(imageData, removeColor, tolerance) {
+    function removeColorFromImageData(imageData, removeColor) {
       const data = imageData.data;
       const [rR, gR, bR] = removeColor;
+      const tolerance = 0; // Exact match for pixel-perfect images
+    
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        const dist = Math.sqrt((r - rR) ** 2 + (g - gR) ** 2 + (b - bR) ** 2);
-        if (dist <= tolerance) {
-          data[i + 3] = 0;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        if (Math.abs(r - rR) <= tolerance &&
+            Math.abs(g - gR) <= tolerance &&
+            Math.abs(b - bR) <= tolerance) {
+          data[i + 3] = 0; // Set alpha to 0 (transparent)
         }
       }
       return imageData;
@@ -462,13 +443,15 @@
         return;
       }
       if (!lastBoxes.length) {
-        alert('Please click "Draw Boxes" first.');
+        alert('No tiles detected. Please adjust your settings.');
         return;
       }
+      
       const rw = parseInt(rectWidthInput.value, 10);
       const rh = parseInt(rectHeightInput.value, 10);
       const removeColor = hexToRgb(colorToRemoveInput.value);
-      const tolerance = parseInt(removeToleranceInput.value, 10);
+      const blanks = document.getElementById('includeBlanksToggle').checked;
+      
       const offCanvas = document.createElement('canvas');
       offCanvas.width = rw;
       offCanvas.height = rh;
@@ -481,14 +464,14 @@
         const box = lastBoxes[idx];
         offCtx.clearRect(0, 0, rw, rh);
         offCtx.drawImage(img, box.x, box.y, rw, rh, 0, 0, rw, rh);
-
+    
         let imageData = offCtx.getImageData(0, 0, rw, rh);
-        imageData = removeColorFromImageData(imageData, removeColor, tolerance);
-
-        if (includeBlanks || !isImageDataBlank(imageData)) {
-          offCtx.putImageData(imageData, 0, 0);
+        removeColorFromImageData(imageData, removeColor); // Modify in place
+        offCtx.putImageData(imageData, 0, 0); // Apply the modified data back
+    
+        if (blanks || !isImageDataBlank(imageData)) {
           const blob = await new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
-          zip.file(`tile_${(zipIdx).toString().padStart(3, '0')}.png`, blob);
+          zip.file(`tile_${zipIdx.toString().padStart(3, '0')}.png`, blob);
           zipIdx++;
         }
       }
@@ -498,7 +481,8 @@
         return;
       }
 
-      zip.generateAsync({type:"blob"}).then(function(content) {
+      try {
+        const content = await zip.generateAsync({type:"blob"});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(content);
         a.download = "sprites.zip";
@@ -506,7 +490,10 @@
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 500);
         a.remove();
-      });
+      } catch (error) {
+        console.error('Error generating ZIP:', error);
+        alert('Error generating ZIP file. Please try again.');
+      }
     });
   </script>
 </body>
