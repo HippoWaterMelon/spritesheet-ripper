@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>iOS Icon Grid Composer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  color: #1d1d1f;
+  font-size: 17px;
+  line-height: 1.47059;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+h1 {
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.003em;
+  line-height: 1.08349;
+  text-align: center;
+  margin: 0 0 8px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 21px;
+  font-weight: 400;
+  color: #86868b;
+  text-align: center;
+  margin: 0 0 60px 0;
+  letter-spacing: 0.011em;
+}
+
+#status {
+  text-align: center;
+  margin: 0 0 30px 0;
+  padding: 16px 24px;
+  border-radius: 12px;
+  display: none;
+  font-weight: 500;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+#status.success {
+  background: rgba(52, 199, 89, 0.1);
+  color: #30a14e;
+  border: 1px solid rgba(52, 199, 89, 0.2);
+}
+
+#status.error {
+  background: rgba(255, 59, 48, 0.1);
+  color: #d1242f;
+  border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 60px;
+  align-items: start;
+}
+
+.controls-section {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 400px;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 24px 0;
+  color: #1d1d1f;
+}
+
+.control-group {
+  margin-bottom: 32px;
+}
+
+.control-group:last-child {
+  margin-bottom: 0;
+}
+
+.file-input-wrapper {
+  position: relative;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.file-input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.file-input-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 16px 24px;
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.file-input-button:hover {
+  background: #0056cc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+}
+
+.file-input-button:active {
+  transform: translateY(0);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  flex: 1;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #34c759;
+  color: white;
+  box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #28a745;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.8);
+  color: #007aff;
+  border: 1px solid rgba(0, 122, 255, 0.3);
+}
+
+.btn-secondary:hover {
+  background: rgba(0, 122, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  background: #f2f2f7;
+  color: #8e8e93;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.parameters-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.parameter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.parameter-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1d1d1f;
+  margin-bottom: 8px;
+}
+
+.parameter-input {
+  padding: 12px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 17px;
+  background: rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+}
+
+.parameter-input:focus {
+  outline: none;
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.canvas-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#canvasContainer {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  aspect-ratio: 9/19.5;
+  background: #000;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#bgCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.grid-cell {
+  position: absolute;
+  border: 2px dashed rgba(255, 0, 0, 1);
+  box-sizing: border-box;
+  pointer-events: auto;
+  aspect-ratio: 1/1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0;
+  visibility: hidden;
+  border-radius: 10px;
+}
+
+.grid-cell.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.grid-cell:hover {
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.02);
+}
+
+.grid-cell.has-icon {
+  border-color: rgba(52, 199, 89, 0.6);
+  background: rgba(52, 199, 89, 0.1);
+}
+
+.grid-cell.has-icon:hover {
+  border-color: rgba(52, 199, 89, 0.8);
+  background: rgba(52, 199, 89, 0.2);
+}
+
+#noImageMessage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  font-size: 19px;
+  font-weight: 500;
+  pointer-events: none;
+  max-width: 280px;
+  line-height: 1.4;
+}
+
+.canvas-info {
+  margin-top: 24px;
+  text-align: center;
+  color: #86868b;
+  font-size: 15px;
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .controls-section {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .parameters-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 20px 16px;
+  }
+
+  h1 {
+    font-size: 36px;
+  }
+
+  .subtitle {
+    font-size: 19px;
+  }
+
+  .controls-section {
+    padding: 24px;
+    border-radius: 16px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .parameters-grid {
+    gap: 12px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Icon Grid Composer</h1>
+    <p class="subtitle">Design perfect iOS app icon layouts with precision and style</p>
+
+<div id="status"></div>
+
+<div class="main-content">
+  <div class="canvas-section">
+    <div id="canvasContainer">
+      <canvas id="bgCanvas" width="430" height="932"></canvas>
+      <div id="noImageMessage">
+        Upload a background image to begin placing your app icons
+      </div>
+    </div>
+    <div class="canvas-info">
+      Click on the grid cells to place icons after uploading a background
+    </div>
+  </div>
+
+  <div class="controls-section">
+    <div class="control-group">
+      <h3 class="section-title">Background</h3>
+      <label class="file-input-wrapper">
+        <input type="file" id="bgInput" accept="image/*" class="file-input">
+        <span class="file-input-button">Choose Background Image</span>
+      </label>
+    </div>
+
+    <div class="control-group">
+      <h3 class="section-title">Actions</h3>
+      <div class="action-buttons">
+        <button id="exportBtn" class="btn btn-primary" disabled>Export Icons</button>
+        <button id="clearBtn" class="btn btn-secondary">Clear All</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h3 class="section-title">Layout Parameters</h3>
+      <div class="parameters-grid">
+        <div class="parameter-group">
+          <label class="parameter-label">Top Margin</label>
+          <input id="topMarginInput" type="number" value="248" min="0" max="500" class="parameter-input">
+        </div>
+        <div class="parameter-group">
+          <label class="parameter-label">Side Margin</label>
+          <input id="sideMarginInput" type="number" value="99" min="0" max="300" class="parameter-input">
+        </div>
+        <div class="parameter-group">
+          <label class="parameter-label">Horizontal Gap</label>
+          <input id="hGapInput" type="number" value="98" min="0" max="200" class="parameter-input">
+        </div>
+        <div class="parameter-group">
+          <label class="parameter-label">Vertical Gap</label>
+          <input id="vGapInput" type="number" value="126" min="0" max="200" class="parameter-input">
+        </div>
+        <div class="parameter-group">
+          <label class="parameter-label">Icon Size</label>
+          <input id="iconSizeInput" type="number" value="200" min="50" max="400" class="parameter-input">
+        </div>
+        <div class="parameter-group">
+          <label class="parameter-label">Rows</label>
+          <input id="rowsInput" type="number" value="6" min="1" max="10" class="parameter-input">
+        </div>
+        <div class="parameter-group">
+          <label class="parameter-label">Columns</label>
+          <input id="colsInput" type="number" value="4" min="1" max="6" class="parameter-input">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  </div>
+
+  <input type="file" id="iconInput" accept="image/*" style="display:none">
+
+  <script>
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    const iconInput = document.getElementById('iconInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const status = document.getElementById('status');
+    const noImageMessage = document.getElementById('noImageMessage');
+
+    let icons = [];
+    const positions = [];
+    let selectedIndex = -1;
+    let bgImg = null;
+
+    const inputs = {
+      top: document.getElementById('topMarginInput'),
+      side: document.getElementById('sideMarginInput'),
+      hgap: document.getElementById('hGapInput'),
+      vgap: document.getElementById('vGapInput'),
+      size: document.getElementById('iconSizeInput'),
+      rows: document.getElementById('rowsInput'),
+      cols: document.getElementById('colsInput'),
+    };
+
+    function showStatus(message, type = 'success') {
+      status.textContent = message;
+      status.className = type;
+      status.style.display = 'block';
+      setTimeout(() => {
+        status.style.display = 'none';
+      }, 3000);
+    }
+
+    function updateExportButton() {
+      const hasIcons = icons.some(icon => icon !== null);
+      exportBtn.disabled = !hasIcons;
+    }
+
+    function updateGridVisibility() {
+      const gridCells = document.querySelectorAll('.grid-cell');
+      if (bgImg) {
+        gridCells.forEach(cell => cell.classList.add('visible'));
+        noImageMessage.style.display = 'none';
+      } else {
+        gridCells.forEach(cell => cell.classList.remove('visible'));
+        noImageMessage.style.display = 'block';
+      }
+    }
+
+    function calculatePositions() {
+      try {
+        const topMargin = Math.max(0, +inputs.top.value || 0);
+        const sideMargin = Math.max(0, +inputs.side.value || 0);
+        const hGap = Math.max(0, +inputs.hgap.value || 0);
+        const vGap = Math.max(0, +inputs.vgap.value || 0);
+        const iconSize = Math.max(50, +inputs.size.value || 50);
+        const rows = Math.max(1, +inputs.rows.value || 1);
+        const cols = Math.max(1, +inputs.cols.value || 1);
+
+        const total = rows * cols;
+        positions.length = 0;
+        
+        // Remove existing grid cells
+        document.querySelectorAll('.grid-cell').forEach(el => el.remove());
+        
+        // Resize icons array
+        while (icons.length < total) icons.push(null);
+        icons.length = total;
+
+        // Create new grid
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c;
+            const left = sideMargin + c * (iconSize + hGap);
+            const top = topMargin + r * (iconSize + vGap);
+            
+            // Store actual canvas coordinates
+            positions.push({ left, top, size: iconSize });
+
+            // Create grid cell overlay
+            const div = document.createElement('div');
+            div.className = 'grid-cell';
+            
+            // Calculate percentages based on actual canvas dimensions
+            const leftPercent = (left / canvas.width) * 100;
+            const topPercent = (top / canvas.height) * 100;
+            const sizePercent = (iconSize / canvas.width) * 100;
+            
+            div.style.left = leftPercent + '%';
+            div.style.top = topPercent + '%';
+            div.style.width = sizePercent + '%';
+            div.dataset.idx = idx;
+            
+            // Update visual state
+            if (icons[idx]) {
+              div.classList.add('has-icon');
+            }
+            
+            div.addEventListener('click', () => {
+              selectedIndex = idx;
+              iconInput.click();
+            });
+            
+            container.appendChild(div);
+          }
+        }
+
+        updateGridVisibility();
+        redraw();
+        updateExportButton();
+      } catch (error) {
+        showStatus('Error calculating positions: ' + error.message, 'error');
+      }
+    }
+
+    function redraw() {
+      try {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw background at actual size (no scaling)
+        if (bgImg) {
+          ctx.drawImage(bgImg, 0, 0);
+        }
+        
+        // Draw icons
+        icons.forEach((icon, i) => {
+          if (icon && positions[i]) {
+            const { left, top, size } = positions[i];
+            ctx.drawImage(icon, left, top, size, size);
+          }
+        });
+      } catch (error) {
+        showStatus('Error drawing canvas: ' + error.message, 'error');
+      }
+    }
+
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !file.type.startsWith('image/')) {
+          reject(new Error('Invalid file type'));
+          return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(img.src);
+          resolve(img);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(img.src);
+          reject(new Error('Failed to load image'));
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Background image upload
+    document.getElementById('bgInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        bgImg = await loadImage(file);
+        
+        // Resize canvas to match image dimensions
+        canvas.width = bgImg.naturalWidth;
+        canvas.height = bgImg.naturalHeight;
+        
+        // Recalculate positions with new canvas size
+        calculatePositions();
+        updateGridVisibility();
+        redraw();
+        showStatus(`Background loaded (${bgImg.naturalWidth}×${bgImg.naturalHeight})`);
+      } catch (error) {
+        showStatus('Failed to load background image: ' + error.message, 'error');
+      }
+    });
+
+    // Icon upload
+    iconInput.addEventListener('change', async (e) => {
+      if (selectedIndex === -1) return;
+      
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const icon = await loadImage(file);
+        icons[selectedIndex] = icon;
+        
+        // Update grid cell visual state
+        const gridCell = document.querySelector(`[data-idx="${selectedIndex}"]`);
+        if (gridCell) {
+          gridCell.classList.add('has-icon');
+        }
+        
+        redraw();
+        updateExportButton();
+        showStatus(`Icon added to position ${selectedIndex + 1}`);
+      } catch (error) {
+        showStatus('Failed to load icon: ' + error.message, 'error');
+      }
+    });
+
+    // Export functionality
+    exportBtn.addEventListener('click', async () => {
+      if (!window.JSZip) {
+        showStatus('JSZip library not loaded. Please refresh the page.', 'error');
+        return;
+      }
+
+      const iconsToExport = icons.filter(icon => icon !== null);
+      if (iconsToExport.length === 0) {
+        showStatus('No icons to export', 'error');
+        return;
+      }
+
+      try {
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'Exporting...';
+
+        const zip = new JSZip();
+        let exportCount = 0;
+
+        for (let i = 0; i < icons.length; i++) {
+          const icon = icons[i];
+          if (!icon || !positions[i]) continue;
+
+          const { left, top, size } = positions[i];
+          
+          // Create individual canvas for each icon
+          const offCanvas = document.createElement('canvas');
+          offCanvas.width = size;
+          offCanvas.height = size;
+          const offCtx = offCanvas.getContext('2d');
+          
+          // FIRST: Draw the background portion at this position if background exists
+          if (bgImg) {
+            // Draw the exact background section without any scaling
+            offCtx.drawImage(bgImg, left, top, size, size, 0, 0, size, size);
+          }
+          
+          // SECOND: Draw the icon on top of the background
+          offCtx.drawImage(icon, 0, 0, size, size);
+
+          // Convert to blob
+          const blob = await new Promise((resolve, reject) => {
+            offCanvas.toBlob((blob) => {
+              if (blob) resolve(blob);
+              else reject(new Error('Failed to create blob'));
+            }, 'image/png');
+          });
+
+          const row = Math.floor(i / +inputs.cols.value) + 1;
+          const col = (i % +inputs.cols.value) + 1;
+          zip.file(`icon_row${row}_col${col}_pos${i + 1}.png`, blob);
+          exportCount++;
+        }
+
+        // Generate and download ZIP
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ios_icons_${new Date().toISOString().slice(0, 10)}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        URL.revokeObjectURL(url);
+        showStatus(`Successfully exported ${exportCount} icons`);
+
+      } catch (error) {
+        showStatus('Export failed: ' + error.message, 'error');
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = 'Export Icons';
+        updateExportButton();
+      }
+    });
+
+    // Clear all icons
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear all icons?')) {
+        icons.fill(null);
+        document.querySelectorAll('.grid-cell').forEach(cell => {
+          cell.classList.remove('has-icon');
+        });
+        redraw();
+        updateExportButton();
+        showStatus('All icons cleared');
+      }
+    });
+
+    // Input change listeners
+    Object.values(inputs).forEach(input => {
+      input.addEventListener('input', calculatePositions);
+    });
+
+    // Check if JSZip loaded
+    window.addEventListener('load', () => {
+      if (!window.JSZip) {
+        showStatus('Warning: JSZip library failed to load. Export functionality may not work.', 'error');
+      }
+    });
+
+    // Initialize
+    calculatePositions();
+  </script>
+
+</body>
+</html>
